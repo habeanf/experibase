@@ -78,7 +78,8 @@ task = gettask()
 if not task:
     shutdown('no task found')
 
-run_task(task)
-
-while poll():
-    sleep(POLL_TIMER)
+while task:
+    run_task(task)
+    while poll():
+        sleep(POLL_TIMER)
+    task = gettask()
