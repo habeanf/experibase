@@ -59,12 +59,16 @@ for execution in executions:
     #         if conf['use'] == 'optional' and param:
     #             files.append(param)
     # for cmd in CMDS:
-    #     execcmd = cmd[:]
-    #     for name, value in zip(map(lambda (k,v):k, GROUPS), execution):
-    #         execcmd = execcmd.replace('$'+name, value)
-    #     execcmd = execcmd.replace('$exp', '_'.join(execution))
+    execcmd = CMDS[0]
+    task = dict(zip(map(lambda (k, v): k, GROUPS), execution))
+    for name, value in task.items():
+        execcmd = execcmd.replace('$'+name, value)
+    # execcmd = execcmd.replace('$exp', '_'.join(execution))
     #     print execcmd
-    task = dict(zip(map(lambda (k,v):k, GROUPS), execution))
+    task['cmd'] = execcmd
+    task['stdout'] = "runstatus.%s.log" % ('_'.join(execution),)
+    task['stderr'] = "runstatus.%s.err" % ('_'.join(execution),)
+
     r.sadd(TASK_KEY, json.dumps(task))
     # exp_string = '_'.join(exp_strings)
     # outname = CONF_FILE % exp_string

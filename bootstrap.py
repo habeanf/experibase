@@ -4,8 +4,10 @@ from settings import *
 
 import redis
 import os
+import subprocess
 from time import sleep
 import logging
+import json
 
 logging.basicConfig(filename='log', level=logging.DEBUG)
 
@@ -14,6 +16,7 @@ r = redis.StrictRedis(host=REDIS_ENDPOINT, port=REDIS_PORT,
 
 task_id = None
 
+FILES = []
 
 def shutdown(reason):
     # notify of shutdown with log
@@ -33,19 +36,21 @@ def uploadresult():
     pass
 
 
-def iscomplete():
-    return True
+def iscomplete(process):
+    return process.poll() is not None
 
 
-def iserror():
-    pass
+def iserror(process):
+    return False
 
 
-def poll():
+def poll(process):
     logging.info("Poll awakened")
     samplestate()
-    if iscomplete() or iserror():
-        logging.info("Execution %s" % ("complete" if iscomplete() else "error"))
+    if iserror(process) or iscomplete(process):
+        logging.info("Execution %s" % ("complete" if iscomplete(process) else "error"))
+        # closing files
+        [f.close() for f in FILES]
         # upload resuls
         # update state
         # shutdown
@@ -55,8 +60,14 @@ def poll():
     return True
 
 
-def run_task(task):
-    logging.info('Running task %s' % (task,))
+def run_task(task, files):
+    cmd = task['cmd']
+    logfile = 'runstatus.log'
+    errfile = 'error.log'
+    logging.info('Running cmd %s; logging to (%s, %s)' % (cmd, logfile, errfile))
+    stdout, stderr = open(logfile, 'w'), open(errfile, 'w')
+    files += [stdout, stderr]
+    return subprocess.Popen(cmd.split(), stdout=stdout, stderr=stderr)
 
 
 def gettask():
@@ -64,7 +75,9 @@ def gettask():
     while attempts < MAX_TASK_ATTEMPTS:
         numtasks = r.scard(TASK_KEY)
         if numtasks > 0:
-            return r.spop(TASK_KEY)
+            raw_task = r.spop(TASK_KEY)
+            task = json.loads(raw_task)
+            return task
         logging.info(
             "No task found, waiting %d seconds for and another %d retries" %
             (GET_TASK_WAIT, MAX_TASK_ATTEMPTS-attempts))
@@ -79,7 +92,8 @@ if not task:
     shutdown('no task found')
 
 while task:
-    run_task(task)
-    while poll():
-        sleep(POLL_TIMER)
+    logging.info("Got task %s" % (str(task),))
+    process = run_task(task, FILES)
+    while poll(process):
+        sleep(POLL_INTERVAL)
     task = gettask()
