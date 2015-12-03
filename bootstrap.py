@@ -8,8 +8,10 @@ import subprocess
 from time import sleep
 import logging
 import json
+import requests
 
-logging.basicConfig(filename='log', level=logging.DEBUG)
+FORMAT = '%(asctime)-15s %(message)s'
+logging.basicConfig(filename='log', level=logging.DEBUG, format=FORMAT)
 
 r = redis.StrictRedis(host=REDIS_ENDPOINT, port=REDIS_PORT,
                       password=REDIS_PASSWORD)
@@ -17,6 +19,10 @@ r = redis.StrictRedis(host=REDIS_ENDPOINT, port=REDIS_PORT,
 task_id = None
 
 FILES = []
+
+hostname = requests.get('http://metadata/computeMetadata/v1/instance/hostname',
+                        headers={'Metadata-Flavor': 'Google'}).text
+
 
 def shutdown(reason):
     # notify of shutdown with log
@@ -44,15 +50,18 @@ def iserror(process):
     return False
 
 
-def poll(process):
+def poll(process, task):
     logging.info("Poll awakened")
     samplestate()
     if iserror(process) or iscomplete(process):
-        logging.info("Execution %s" % ("complete" if iscomplete(process) else "error"))
+        logging.info("Execution %s" %
+                     ("complete" if iscomplete(process) else "error"))
         # closing files
         [f.close() for f in FILES]
         # upload resuls
         # update state
+        task['server'] = hostname
+        r.sadd('done', task)
         # shutdown
         logging.info("Shutting down")
         shutdown('done')
@@ -94,6 +103,6 @@ if not task:
 while task:
     logging.info("Got task %s" % (str(task),))
     process = run_task(task, FILES)
-    while poll(process):
+    while poll(process, task):
         sleep(POLL_INTERVAL)
     task = gettask()
