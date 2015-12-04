@@ -56,8 +56,11 @@ docs/_build/
 # PyBuilder
 target/
 
+# development files
 local_settings.py
-
 log
+*.tar.gz
 
+# IDE
 .ropeproject/
+
