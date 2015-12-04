@@ -60,6 +60,7 @@ target/
 local_settings.py
 log
 *.tar.gz
+results/
 
 # IDE
 .ropeproject/
