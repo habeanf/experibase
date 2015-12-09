@@ -21,7 +21,7 @@ r = redis.StrictRedis(host=REDIS_ENDPOINT, port=REDIS_PORT,
 # first transform optional to empty, existing
 for (name, conf) in GROUPS:
     if conf.get('use', None) == 'optional':
-        conf['values'] = [None, conf['value']]
+        conf['values'] = ['not'+conf['value'], conf['value']]
 
 conf_values = map(lambda (name, conf): conf['values'], GROUPS)
 
@@ -58,18 +58,22 @@ for execution in executions:
     #             files += conf['values'][:conf['values'].index(param)+1]
     #         if conf['use'] == 'optional' and param:
     #             files.append(param)
-    # for cmd in CMDS:
-    execcmd = CMDS[0]
-    task = dict(zip(map(lambda (k, v): k, GROUPS), execution))
-    for name, value in task.items():
-        execcmd = execcmd.replace('$'+name, value)
+    for execcmd in CMDS:
+        task = dict(zip(map(lambda (k, v): k, GROUPS), execution))
+        for name, value in task.items():
+            if value[0:3] == 'not':
+                value = ''
+            execcmd = execcmd.replace('$'+name, value)
+        task.get('cmds',[]).append(execcmd)
+        print execcmd
     # execcmd = execcmd.replace('$exp', '_'.join(execution))
     #     print execcmd
-    task['cmd'] = execcmd
-    task['stdout'] = "runstatus.%s.log" % ('_'.join(execution),)
-    task['stderr'] = "runstatus.%s.err" % ('_'.join(execution),)
+    task['outfiles'] = OUTFILES
+    exp_string = '_'.join(map(lambda s:s.replace('-',''),execution))
+    task['exp'] = exp_string
+    print exp_string
 
-    r.sadd(TASK_KEY, json.dumps(task))
+    # r.sadd(TASK_KEY, json.dumps(task))
     # exp_string = '_'.join(exp_strings)
     # outname = CONF_FILE % exp_string
     # print command_line_options
