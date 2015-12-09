@@ -9,6 +9,7 @@ from time import sleep
 import logging
 import json
 import requests
+from datetime import datetime
 
 FORMAT = '%(asctime)-15s %(message)s'
 logging.basicConfig(filename='log', level=logging.DEBUG, format=FORMAT)
@@ -69,14 +70,54 @@ def poll(process, task):
     return True
 
 
+def heartbeat(task):
+    r.set(task['run'] + '-' + task['exp'],
+          json.dumps({'heartbeat': str(datetime.now()),
+                      'lastdone': task.get('lastdonestage', None)}))
+
+
+def uploadfiles(task, files):
+    run = task['run']
+    logging.info("compressing files")
+    subprocess.call(['tar', 'czvf', task['exp'] + '.results.tar.gz'] + files)
+    logging.info("Uploading files")
+    subprocess.call(['gsutil', 'cp', 'results.tar.gz',
+                     'gs://yapresearch/' + run + '/'])
+    subprocess.call(['rm', 'results.tar.gz'])
+
+
+def resetdir(files):
+    subprocess.call(['rm'] + files)
+
+
+def markcomplete(task):
+    r.sadd(task['run']+'-done', task['exp'])
+
+
 def run_task(task, files):
-    cmd = task['cmd']
-    logfile = 'runstatus.log'
-    errfile = 'error.log'
-    logging.info('Running cmd %s; logging to (%s, %s)' % (cmd, logfile, errfile))
-    stdout, stderr = open(logfile, 'w'), open(errfile, 'w')
-    files += [stdout, stderr]
-    return subprocess.Popen(cmd.split(), stdout=stdout, stderr=stderr)
+    cmds = task['cmds']
+    outfiles = task['outfiles']
+    cmdouts = zip(cmds, outfiles)
+    logfile = 'stdout.log'  # always empty for some reason
+    for cmd, outfile in cmdouts:
+        logging.info('Running cmd %s; logging to (%s, %s)' %
+                     (cmd, logfile, outfile))
+        stdout, stderr = open(logfile, 'w'), open(outfile, 'w')
+        files += [stdout, stderr]
+        p = subprocess.Popen(cmd.split(), stdout=stdout, stderr=stderr)
+        logging.info('Started cmd %s' % (cmd,))
+        while not iscomplete(p):
+            logging.info('Sleeping..')
+            sleep(POLL_INTERVAL)
+            heartbeat(task)
+            logging.info("process poll awakened")
+        logging.info('cmd ended closing files')
+        [f.close() for f in files]
+        task['lastdonestage'] = cmd
+        logging.info("cmd ended")
+    uploadfiles(task, outfiles)
+    markcomplete(task)
+    resetdir(outfiles)
 
 
 def gettask():
@@ -102,7 +143,7 @@ if not task:
 
 while task:
     logging.info("Got task %s" % (str(task),))
-    process = run_task(task, FILES)
-    while poll(process, task):
-        sleep(POLL_INTERVAL)
+    run_task(task, FILES)
     task = gettask()
+
+shutdown('done')

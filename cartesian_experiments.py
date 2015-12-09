@@ -58,22 +58,26 @@ for execution in executions:
     #             files += conf['values'][:conf['values'].index(param)+1]
     #         if conf['use'] == 'optional' and param:
     #             files.append(param)
+    task = dict(zip(map(lambda (k, v): k, GROUPS), execution))
+    cmds = []
     for execcmd in CMDS:
-        task = dict(zip(map(lambda (k, v): k, GROUPS), execution))
         for name, value in task.items():
             if value[0:3] == 'not':
                 value = ''
+            print 'At ' + name
             execcmd = execcmd.replace('$'+name, value)
-        task.get('cmds',[]).append(execcmd)
-        print execcmd
+        cmds.append(execcmd)
     # execcmd = execcmd.replace('$exp', '_'.join(execution))
     #     print execcmd
+    task['cmds'] = cmds
     task['outfiles'] = OUTFILES
     exp_string = '_'.join(map(lambda s:s.replace('-',''),execution))
     task['exp'] = exp_string
+    task['run'] = 'run1'
     print exp_string
+    print task
 
-    # r.sadd(TASK_KEY, json.dumps(task))
+    r.sadd(TASK_KEY, json.dumps(task))
     # exp_string = '_'.join(exp_strings)
     # outname = CONF_FILE % exp_string
     # print command_line_options
