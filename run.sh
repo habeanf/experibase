@@ -5,5 +5,6 @@ chmod u+x runtasks.py
 gsutil cp gs://yapresearch/settings.py .
 gsutil cp gs://yapresearch/local_settings.py .
 
+sudo apt-get install htop
 sudo pip install redis requests
 ./runtasks.py $1 > runtasks.log

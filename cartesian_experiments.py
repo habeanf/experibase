@@ -33,7 +33,7 @@ def gen_agg_file(values, out_name):
             with open(value) as inf:
                 outf.write(inf.read())
 
-for execution in executions:
+for i, execution in enumerate(executions):
     print 'At execution %s' % str(execution)
     files = [BASE_FILE]
     exp_strings = []
@@ -64,7 +64,6 @@ for execution in executions:
         for name, value in task.items():
             if value[0:3] == 'not':
                 value = ''
-            print 'At ' + name
             execcmd = execcmd.replace('$'+name, value)
         cmds.append(execcmd)
     # execcmd = execcmd.replace('$exp', '_'.join(execution))
@@ -74,8 +73,8 @@ for execution in executions:
     exp_string = '_'.join(map(lambda s:s.replace('-',''),execution))
     task['exp'] = exp_string
     task['run'] = 'run1'
+    task['num'] = i
     print exp_string
-    print task
 
     r.sadd(TASK_KEY, json.dumps(task))
     # exp_string = '_'.join(exp_strings)

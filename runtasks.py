@@ -79,15 +79,15 @@ def heartbeat(task):
 def uploadfiles(task, files):
     run = task['run']
     logging.info("compressing files")
-    subprocess.call(['tar', 'czvf', task['exp'] + '.results.tar.gz'] + files)
+    subprocess.call(['tar', 'czvf', str(task['num']) + '.results.tar.gz'] + files + ['interm*'])
     logging.info("Uploading files")
-    subprocess.call(['gsutil', 'cp', 'results.tar.gz',
+    subprocess.call(['gsutil', 'cp', str(task['num']) + 'results.tar.gz',
                      'gs://yapresearch/' + run + '/'])
     subprocess.call(['rm', 'results.tar.gz'])
 
 
 def resetdir(files):
-    subprocess.call(['rm'] + files)
+    subprocess.call(['rm'] + files + ['interm*'])
 
 
 def markcomplete(task):
