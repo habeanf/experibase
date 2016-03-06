@@ -76,6 +76,13 @@ def heartbeat(task):
                       'lastdone': task.get('lastdonestage', None)}))
 
 
+def downloadfiles(filename):
+    logging.info("Downloading file %s" % filename)
+    subprocess.call(['gsutil', 'cp', 'gs://yapresearch/' + filename, '.'])
+    logging.info("Decompressing file %s" % filename)
+    subprocess.call(['tar', 'xzvf', filename])
+
+
 def uploadfiles(task, files):
     run = task['run']
     logging.info("compressing files")
@@ -99,6 +106,8 @@ def run_task(task, files):
     outfiles = task['outfiles']
     cmdouts = zip(cmds, outfiles)
     logfile = 'stdout.log'  # always empty for some reason
+    if 'download' in task:
+        downloadfiles(task['download'])
     for cmd, outfile in cmdouts:
         logging.info('Running cmd %s; logging to (%s, %s)' %
                      (cmd, logfile, outfile))
