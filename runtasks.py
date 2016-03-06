@@ -28,7 +28,7 @@ hostname = requests.get('http://metadata/computeMetadata/v1/instance/hostname',
 def shutdown(reason):
     # notify of shutdown with log
     if DO_SHUTDOWN:
-        os.system("shutdown -h now")
+        os.system("sudo shutdown -h now")
 
 
 def run_command(cmd):
@@ -79,11 +79,11 @@ def heartbeat(task):
 def uploadfiles(task, files):
     run = task['run']
     logging.info("compressing files")
-    subprocess.call(['tar', 'czvf', str(task['num']) + '.results.tar.gz'] + files + ['interm*'])
+    subprocess.call(['bash','-c',' '.join(['tar', 'czvf', str(task['num']) + '.results.tar.gz'] + files + ['log', 'interm*'])])
     logging.info("Uploading files")
-    subprocess.call(['gsutil', 'cp', str(task['num']) + 'results.tar.gz',
+    subprocess.call(['gsutil', 'cp', str(task['num']) + '.results.tar.gz',
                      'gs://yapresearch/' + run + '/'])
-    subprocess.call(['rm', 'results.tar.gz'])
+    # subprocess.call(['rm', 'results.tar.gz'])
 
 
 def resetdir(files):

@@ -72,7 +72,7 @@ for i, execution in enumerate(executions):
     task['outfiles'] = OUTFILES
     exp_string = '_'.join(map(lambda s:s.replace('-',''),execution))
     task['exp'] = exp_string
-    task['run'] = 'run1'
+    task['run'] = RUN_NAME
     task['num'] = i
     print exp_string
 

@@ -7,6 +7,7 @@ MAX_TASK_ATTEMPTS = 20
 GET_TASK_WAIT = 5
 DO_SHUTDOWN = False
 OUTFILES = []
+RUN_NAME = 'run'
 
 try:
     from local_settings import *
