@@ -4,8 +4,8 @@
 
 import redis
 import itertools
-# from pprint import pprint
-import os
+from pprint import pprint
+import subprocess
 import json
 
 GROUPS = []
@@ -18,24 +18,41 @@ r = redis.StrictRedis(host=REDIS_ENDPOINT, port=REDIS_PORT,
                       password=REDIS_PASSWORD)
 
 
-# first transform optional to empty, existing
-for (name, conf) in GROUPS:
-    if conf.get('use', None) == 'optional':
-        conf['values'] = ['not'+conf['value'], conf['value']]
-
-conf_values = map(lambda (name, conf): conf['values'], GROUPS)
-
-executions = list(itertools.product(*conf_values))
-
 def gen_agg_file(values, out_name):
     with open(out_name, 'w') as outf:
         for value in values:
             with open(value) as inf:
                 outf.write(inf.read())
 
+
+# first transform optional to empty, existing
+for (name, conf) in GROUPS:
+    if conf.get('use', None) == 'optional':
+        conf['values'] = ['not'+conf['value'], conf['value']]
+    if conf.get('type', None) == 'file' and conf.get('use', None) == 'agg':
+        # generate aggregative files
+        outfiles = []
+        for i in range(len(conf['values'])):
+            v = conf['values'][:i+1]
+            outfile = "%s.%s.yaml" % ('_'.join(v), RUN_NAME)
+            outfiles.append(outfile)
+            gen_agg_file(map(lambda s: conf['dir'] + '/' + s, [conf['base']] + v), outfile)
+        archive_name = '%s.%s.tar.gz' % (RUN_NAME, name)
+        print 'Archiving agg conf files to %s' % archive_name
+        subprocess.call(['tar', 'czf', archive_name] + outfiles)
+        print 'Uploading'
+        subprocess.call(['gsutil', 'cp', archive_name,  'gs://yapresearch/'])
+        conf['values'] = outfiles
+
+
+conf_values = map(lambda (name, conf): conf['values'], GROUPS)
+
+executions = list(itertools.product(*conf_values))
+
+
 for i, execution in enumerate(executions):
     print 'At execution %s' % str(execution)
-    files = [BASE_FILE]
+    # files = [BASE_FILE]
     exp_strings = []
     command_line_options = []
     options = {}
@@ -53,8 +70,7 @@ for i, execution in enumerate(executions):
     #         exp_strings.append(conf_name if param else 'no%s' % conf_name)
     #     else:
     #         exp_strings.append(param)
-    #     if conf['type'] == 'file':
-    #         if conf['use'] == 'agg':
+    #     if conf['type'] == 'file': #         if conf['use'] == 'agg':
     #             files += conf['values'][:conf['values'].index(param)+1]
     #         if conf['use'] == 'optional' and param:
     #             files.append(param)
@@ -68,13 +84,15 @@ for i, execution in enumerate(executions):
         cmds.append(execcmd)
     # execcmd = execcmd.replace('$exp', '_'.join(execution))
     #     print execcmd
+    task['download'] = '%s.gram.tar.gz' % RUN_NAME
     task['cmds'] = cmds
     task['outfiles'] = OUTFILES
-    exp_string = '_'.join(map(lambda s:s.replace('-',''),execution))
+    exp_string = '_'.join(map(lambda s: s.replace('-', ''), execution))
     task['exp'] = exp_string
     task['run'] = RUN_NAME
     task['num'] = i
     print exp_string
+    # pprint(task)
 
     r.sadd(TASK_KEY, json.dumps(task))
     # exp_string = '_'.join(exp_strings)
